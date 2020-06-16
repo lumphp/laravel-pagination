@@ -1,0 +1,36 @@
+{
+    "name": "lumphp/laravel-pagination",
+    "description": "The Illuminate Pagination package.",
+    "license": "MIT",
+    "homepage": "https://laravel.com",
+    "support": {
+        "issues": "https://github.com/lumphp/laravel-pagination/issues",
+        "source": "https://github.com/lumphp/laravel-pagination"
+    },
+    "authors": [
+        {
+            "name": "Taylor Otwell",
+            "email": "taylor@laravel.com"
+        }
+    ],
+    "require": {
+        "php": "^7.2.5",
+        "ext-json": "*",
+        "lumphp/laravel-contracts": "^7.0",
+        "lumphp/laravel-support": "^7.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Illuminate\\Pagination\\": "src/"
+        }
+    },
+    "extra": {
+        "branch-alias": {
+            "dev-master": "7.x-dev"
+        }
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "minimum-stability": "dev"
+}
