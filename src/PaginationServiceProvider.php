@@ -13,11 +13,11 @@ class PaginationServiceProvider extends ServiceProvider
      */
     public function boot()
     {
-        $this->loadViewsFrom(__DIR__.'/../resources/views', 'pagination');
+        $this->loadViewsFrom(__DIR__.'/resources/views', 'pagination');
 
         if ($this->app->runningInConsole()) {
             $this->publishes([
-                __DIR__.'/../resources/views' => $this->app->resourcePath('views/vendor/pagination'),
+                __DIR__.'/resources/views' => $this->app->resourcePath('views/vendor/pagination'),
             ], 'laravel-pagination');
         }
     }
@@ -29,26 +29,6 @@ class PaginationServiceProvider extends ServiceProvider
      */
     public function register()
     {
-        Paginator::viewFactoryResolver(function () {
-            return $this->app['view'];
-        });
-
-        Paginator::currentPathResolver(function () {
-            return $this->app['request']->url();
-        });
-
-        Paginator::currentPageResolver(function ($pageName = 'page') {
-            $page = $this->app['request']->input($pageName);
-
-            if (filter_var($page, FILTER_VALIDATE_INT) !== false && (int) $page >= 1) {
-                return (int) $page;
-            }
-
-            return 1;
-        });
-
-        Paginator::queryStringResolver(function () {
-            return $this->app['request']->query();
-        });
+        PaginationState::resolveUsing($this->app);
     }
 }

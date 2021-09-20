@@ -4,17 +4,17 @@ namespace Illuminate\Pagination;
 
 use ArrayAccess;
 use Countable;
-use Illuminate\Contracts\Pagination\Paginator as PaginatorContract;
+use Illuminate\Contracts\Pagination\CursorPaginator as PaginatorContract;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Contracts\Support\Jsonable;
 use Illuminate\Support\Collection;
 use IteratorAggregate;
 use JsonSerializable;
 
-class Paginator extends AbstractPaginator implements Arrayable, ArrayAccess, Countable, IteratorAggregate, Jsonable, JsonSerializable, PaginatorContract
+class CursorPaginator extends AbstractCursorPaginator implements Arrayable, ArrayAccess, Countable, IteratorAggregate, Jsonable, JsonSerializable, PaginatorContract
 {
     /**
-     * Determine if there are more items in the data source.
+     * Indicates whether there are more items in the data source.
      *
      * @return bool
      */
@@ -25,11 +25,11 @@ class Paginator extends AbstractPaginator implements Arrayable, ArrayAccess, Cou
      *
      * @param  mixed  $items
      * @param  int  $perPage
-     * @param  int|null  $currentPage
+     * @param  \Illuminate\Pagination\Cursor|null  $cursor
      * @param  array  $options  (path, query, fragment, pageName)
      * @return void
      */
-    public function __construct($items, $perPage, $currentPage = null, array $options = [])
+    public function __construct($items, $perPage, $cursor = null, array $options = [])
     {
         $this->options = $options;
 
@@ -38,23 +38,10 @@ class Paginator extends AbstractPaginator implements Arrayable, ArrayAccess, Cou
         }
 
         $this->perPage = $perPage;
-        $this->currentPage = $this->setCurrentPage($currentPage);
+        $this->cursor = $cursor;
         $this->path = $this->path !== '/' ? rtrim($this->path, '/') : $this->path;
 
         $this->setItems($items);
-    }
-
-    /**
-     * Get the current page for the request.
-     *
-     * @param  int  $currentPage
-     * @return int
-     */
-    protected function setCurrentPage($currentPage)
-    {
-        $currentPage = $currentPage ?: static::resolveCurrentPage();
-
-        return $this->isValidPageNumber($currentPage) ? (int) $currentPage : 1;
     }
 
     /**
@@ -70,17 +57,9 @@ class Paginator extends AbstractPaginator implements Arrayable, ArrayAccess, Cou
         $this->hasMore = $this->items->count() > $this->perPage;
 
         $this->items = $this->items->slice(0, $this->perPage);
-    }
 
-    /**
-     * Get the URL for the next page.
-     *
-     * @return string|null
-     */
-    public function nextPageUrl()
-    {
-        if ($this->hasMorePages()) {
-            return $this->url($this->currentPage() + 1);
+        if (! is_null($this->cursor) && $this->cursor->pointsToPreviousItems()) {
+            $this->items = $this->items->reverse()->values();
         }
     }
 
@@ -89,7 +68,7 @@ class Paginator extends AbstractPaginator implements Arrayable, ArrayAccess, Cou
      *
      * @param  string|null  $view
      * @param  array  $data
-     * @return string
+     * @return \Illuminate\Contracts\Support\Htmlable
      */
     public function links($view = null, $data = [])
     {
@@ -105,22 +84,9 @@ class Paginator extends AbstractPaginator implements Arrayable, ArrayAccess, Cou
      */
     public function render($view = null, $data = [])
     {
-        return static::viewFactory()->make($view ?: static::$defaultSimpleView, array_merge($data, [
+        return static::viewFactory()->make($view ?: Paginator::$defaultSimpleView, array_merge($data, [
             'paginator' => $this,
         ]));
-    }
-
-    /**
-     * Manually indicate that the paginator does have more pages.
-     *
-     * @param  bool  $hasMore
-     * @return $this
-     */
-    public function hasMorePagesWhen($hasMore = true)
-    {
-        $this->hasMore = $hasMore;
-
-        return $this;
     }
 
     /**
@@ -130,7 +96,29 @@ class Paginator extends AbstractPaginator implements Arrayable, ArrayAccess, Cou
      */
     public function hasMorePages()
     {
-        return $this->hasMore;
+        return (is_null($this->cursor) && $this->hasMore) ||
+            (! is_null($this->cursor) && $this->cursor->pointsToNextItems() && $this->hasMore) ||
+            (! is_null($this->cursor) && $this->cursor->pointsToPreviousItems());
+    }
+
+    /**
+     * Determine if there are enough items to split into multiple pages.
+     *
+     * @return bool
+     */
+    public function hasPages()
+    {
+        return ! $this->onFirstPage() || $this->hasMorePages();
+    }
+
+    /**
+     * Determine if the paginator is on the first page.
+     *
+     * @return bool
+     */
+    public function onFirstPage()
+    {
+        return is_null($this->cursor) || ($this->cursor->pointsToPreviousItems() && ! $this->hasMore);
     }
 
     /**
@@ -141,15 +129,11 @@ class Paginator extends AbstractPaginator implements Arrayable, ArrayAccess, Cou
     public function toArray()
     {
         return [
-            'current_page' => $this->currentPage(),
             'data' => $this->items->toArray(),
-            'first_page_url' => $this->url(1),
-            'from' => $this->firstItem(),
-            'next_page_url' => $this->nextPageUrl(),
             'path' => $this->path(),
             'per_page' => $this->perPage(),
+            'next_page_url' => $this->nextPageUrl(),
             'prev_page_url' => $this->previousPageUrl(),
-            'to' => $this->lastItem(),
         ];
     }
 
